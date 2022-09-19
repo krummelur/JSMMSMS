@@ -1,0 +1,199 @@
+:root {
+	--tile-size: 0px;
+	--board-width: 0px;	
+}
+
+input {
+	width: 70px;
+}
+
+button {
+	margin-bottom: 10px;
+	margin-right: 5px;
+	min-width: 70px;
+}
+
+.raised {
+	box-sizing: border-box;
+	border-top: solid white;
+	border-left: solid white;
+	border-bottom: solid darkgray;	
+	border-right: solid darkgray;
+}
+
+.inset {
+	box-sizing: border-box;
+	border-top: solid darkgray;	
+	border-left: solid darkgray;
+	border-bottom: solid white;
+	border-right: solid white;
+}
+
+.clickable-inset:active {
+	border-top: solid darkgray;	
+	border-left: solid darkgray;
+	border-bottom: solid white;
+	border-right: solid white;
+}
+
+.clickable-raised:active {
+	border-top: solid darkgray;	
+	border-left: solid darkgray;
+	border-bottom: solid white;
+	border-right: solid white;
+}
+
+.info-bar {
+	display: flex;
+	flex-direction: row;
+	justify-content: space-between;
+	background-color: lightgray;
+}
+
+.info-bar div {
+	display: flex;
+	flex-direction: column;
+	justify-content: space-around;
+	margin: 7px;
+	height: 35px;
+}
+
+.number-box {
+	padding: 0 5px 0 5px;
+	color: red;
+	font-size:x-large;
+	background-color: black; 
+}
+
+.jsmsms-container {
+	font-weight: bolder;
+	text-align: center;
+	background-color: lightgrey;
+	width: calc(var(--board-width) + 32px);
+	box-shadow: 0 0 0 1px dimgrey;
+	margin-bottom: 10px;
+}
+
+.status-box {
+	box-sizing: none;
+	width: 35px;
+	font-size:larger;
+}
+
+.tile {
+	font-size: 110%;
+	box-sizing: border-box;
+	width: var(--tile-size);
+	height: var(--tile-size);
+	background-color: lightgray;
+	border-width: 2.5px;
+}
+
+.jsmsms-container > div {
+	margin: 10px;
+	border-width: 3px;
+}
+
+.discovered {
+	background-color: rgb(180,180,180);
+	border: 1px solid dimgrey;
+}
+
+.correct-flagged {
+	background-color: green;
+	border-top: solid darkgreen;
+	border-left: solid darkgreen;
+	border-bottom: solid rgb(60,180,50);	
+	border-right: solid rgb(60,180,50);;
+	border-width: 1.5px;
+}
+
+.killer {
+	background-color: red;
+	border-top: solid darkred;
+	border-left: solid darkred;
+	border-bottom: solid tomato;	
+	border-right: solid tomato;
+	border-width: 1.5px;
+}
+
+.tileboard {
+	display:flex;
+	flex-wrap: wrap;
+	width: var(--board-width);
+}
+
+/*content, ordered by precedence ascending */
+
+/* Mine numbers */
+.one::before {
+	content: "1";
+	color: blue;
+}
+
+.two::before {
+	content: "2";
+	color: green;
+}
+
+.three::before {
+	content: "3";
+	color: red;
+}
+
+.four::before {
+	content: "4";
+	color: darkblue;
+}
+
+.five::before {
+	content: "5";
+	color: darkred;
+}
+
+.six::before {
+	content: "6";
+	color: darkcyan;
+}
+
+.seven::before {
+	content: "7";
+	color: purple;
+}
+
+.eight::before {
+	content: "8";
+	color: rgb(64,64,64);
+}
+
+/* Tile images */
+.mine:before {
+	font-size: small;
+	content: "💣"
+}
+
+.flagged:before {
+	font-size: small;
+	content: "🚩";
+}
+
+.correct-flagged:before {
+	font-size: small;
+	content: "🏳️‍🌈";
+}
+
+.status-box:before {
+	content: "🙂"
+}
+
+.status-box:active::before {
+	content: "🙃"
+}
+
+.lose::before {
+	content: "😤"
+}
+
+.win::before {
+	content: "🤩"
+}

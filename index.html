@@ -1,0 +1,302 @@
+<html>
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width,height=device-height,initial-scale=1">
+
+	<link rel="stylesheet" href="styles.css">
+	<script>
+		/**
+		 * Constants
+		 */
+		const TILE_WIDTH_PIXELS = 21;
+		const CONTAINER = "tilecontainer"
+		const TILE_BOARD = "tileboard";
+		const TILE = "tile";
+		const UNKNOWN_TILE = "tile unknown";
+		const BOMB_TILE = "tile bomb";
+		const FLAG_TILE = "tile flag";
+		const DEBUG_TILE_RED = "tile red";
+		GAME_CONFIG = {width: 30, height: 16, mines: 99}
+		
+		//Current timer
+		currentInterval = -1
+
+		/** 
+		 * Convenience functions
+		 */
+		const getTileClass = (tile) => {
+			let mineAmountClassNames = ["", "one", "two", "three", "four", "five", "six", "seven", "eight"]
+			let className = TILE + " "
+			if(tile.isFlagged) className += "flagged ";
+			if (tile.isDiscovered) {
+				className += "discovered "
+				if (tile.isKiller) 	className +=  "killer ";
+				if (tile.isMine)	className +=  "mine ";
+				className += (tile.isFlagged && tile.isMine)  ? "correct-flagged " : mineAmountClassNames[tile.surroundingMines]
+			} else {
+				className += "raised clickable-raised"
+			}
+			return className
+		}
+
+		const getTileElement = (tile) => document.getElementById(getTileId(tile));
+
+		const getTileId = (tile) => TILE + tile.y + "-" + tile.x
+
+		const getTileContainer = () => document.getElementById(CONTAINER);
+
+		const setRootProperty = (property, value) => document.documentElement.style.setProperty(property, value);
+
+		const setRemainingMines = (amount) => document.getElementById("remaining-mines").textContent = ("00" + amount).slice(-3)
+
+		const getStatusElement = () => document.getElementById("status-box").className;
+
+		const setTime = (elapsedTime) => document.getElementById("time").textContent = ("00" + elapsedTime).slice(-3);
+
+		const getCurrentInterval = () => currentInterval;
+
+		const setCurrentInterval = (value) => currentInterval = value;
+
+	</script>
+	<script>
+		/**
+		  * Game
+		  */
+		let customGame = () => {
+			[height, width, mines] = ["height", "width", "mines"]
+				.map(s => document.getElementById("input-" + s).value)
+				.map(i => parseInt(i))
+			if(![height, width, mines].every(Number.isInteger)) {
+				error = new Error("Enter integer numbers.")
+				alert(error); throw error;
+			}
+			[height, width] = [height, width].map(i => Math.max(Math.min(50, i), 9));
+
+			startNewGame({height, width, mines});
+		}
+
+		let startNewGame = ({width: width, height: height, mines: mines}) => {
+			if(mines > width*height - 9) {
+				error = new Error("Invalid board configuration; too many mines."); 
+				alert(error)
+				throw error
+			}
+			GAME_CONFIG = {width, height, mines}
+			resetStatusElement();
+			createBoard(createField(height, width, mines));
+			setRemainingMines(mines);
+			
+			//Draw time
+			let elapsedTime = 0;
+			setTime(elapsedTime)
+			
+			clearInterval(getCurrentInterval());
+			setCurrentInterval (setInterval(() => {
+				elapsedTime++
+				setTime(elapsedTime)
+			}, 1000))
+		} 
+
+		checkWinCondition = (mineField) => {
+			if(mineField.remainingMines != 0) return false;
+			//If there exists an undiscovered tile which is not a mine
+			//or if there exists a mine that is not flagged, the user has not completed the board.  
+			return !mineField.tiles.flat().some(t => 
+				(!t.isDiscovered && !t.isMine) ||
+				(t.isMine && !t.isFlagged)
+			)
+		}
+
+		resetStatusElement = () => {
+			document.getElementById("status-box").className = "status-box raised clickable-raised" 
+		}
+
+		gameFinished = (mineField, isWin) => {
+			mineField.tiles.flat().forEach(t => t.isDiscovered = true);
+			createBoard(mineField)
+			gameEndClass = isWin ? "win" : "lose";
+			document.getElementById("status-box").className = "status-box raised clickable-raised " + gameEndClass  
+			clearInterval(getCurrentInterval())
+		}
+
+		let getNeighbourIndices = (tile, field) => {
+			let neighbours = []
+			for (offsetX = -1; offsetX <= 1; offsetX++) {
+				for (offsetY = -1; offsetY <= 1; offsetY++) {
+					if (offsetX | offsetY) neighbours.push([tile.y + offsetY, tile.x + offsetX]);
+				}
+			}
+			return neighbours.filter(([y, x]) => y >= 0 && x >= 0 && y < field.height && x < field.width)
+		}
+
+		let createField = (height, width, mines) => {
+			let field = {
+				remainingMines: mines,
+				totalMines: mines,
+				height: height,
+				width: width,
+				tiles: [],
+			};
+			for (let y = 0; y < height; y++) {
+				row = [];
+				for (let x = 0; x < width; x++) {
+					row.push({
+						y: y,
+						x: x,
+						isDiscovered: false,
+						isMine: false,
+						surroundingMines: 0
+					})
+				}
+				field.tiles.push(row);
+			}
+			return field
+		}
+
+		let updateElement = (tile) => {
+			tileElement = getTileElement(tile)
+			tileElement.className = getTileClass(tile)
+		}
+
+		let updateTileMineStatus = (mineField, tile, newStatus) => {
+			if(newStatus == tile.isMine) return;
+			tile.isMine = newStatus
+			getNeighbourIndices(tile, mineField)
+				.map(([x,y]) => mineField.tiles[x][y])
+				.forEach(t => t.surroundingMines += newStatus ? 1 : -1)
+		}
+
+		let placeMines = (mineField, pickedTile) => {
+			//Add mines
+			forbiddenTiles = new Set([...getNeighbourIndices(pickedTile, mineField).map(([y,x]) => mineField.tiles[y][x]), pickedTile])
+			for (let placedMines = 0; placedMines < mineField.totalMines;) {
+				let indexY = Math.floor(Math.random() * mineField.height);
+				let indexX = Math.floor(Math.random() * mineField.width);
+				tile = mineField.tiles[indexY][indexX];
+				if(tile.isMine) continue
+				if(forbiddenTiles.has(tile)) continue
+				
+				updateTileMineStatus(mineField, tile, true)
+				placedMines++
+			}
+			return mineField;
+		}
+
+		let discoverNeighbours = (mineField, tile) => {
+			if (tile.isMine) 					return;
+			if (tile.surroundingMines != 0)  	return;
+
+			/* Recursion causes stack overflow with large boards, but it is a one liner :)
+			 * e.g.  getNeighbourIndices(tile, mineField).forEach(([y,x]) => handleNeigbourDiscovered(mineField, mineField.tiles[y][x], depth))
+			 * Growing a perimeter in a loop is fast works for any size. 
+			 */
+			let inside = new Set().add(tile)
+			let perimeter = new Set((getNeighbourIndices(tile, mineField).map(([y, x]) => mineField.tiles[y][x])))
+			prevSize = 0
+			while (inside.size - prevSize) {
+				prevSize = inside.size;
+				nextPerimeter = [...perimeter]
+					.filter(t => !t.surroundingMines && !t.isFlagged)
+					.map(t => getNeighbourIndices(t, mineField)
+						.map(([y, x]) => mineField.tiles[y][x]))
+					.flat()
+				
+				for (const t of perimeter) {
+					if(!t.isFlagged)t.isDiscovered = true
+					inside.add(t)
+				}
+				perimeter = new Set([...nextPerimeter].filter(t => !inside.has(t)))
+			}
+			createBoard(mineField)
+		}
+
+		let handleTileClicked = (mineField, tile) => {
+			if(tile.isFlagged || tile.isDiscovered) { return }
+			if(!mineField.hasBeenClicked) {
+				placeMines(mineField, tile)
+				mineField.hasBeenClicked = true;
+			}
+			tile.isDiscovered = true;
+			updateElement(tile)
+			if(tile.isMine) {
+				tile.isKiller = true;
+				gameFinished(mineField, false)
+			} 
+			if (tile.surroundingMines == 0 && !tile.isMine) {
+				discoverNeighbours(mineField, tile)
+			}
+			if(checkWinCondition(mineField)) {
+				gameFinished(mineField, true)
+			}
+		}
+
+		let createTileElement = (tile, callback, rightClickCallback) => {
+			let tileElement = document.createElement("div");
+			tileElement.className = getTileClass(tile);
+			tileElement.id = getTileId(tile);
+			tileElement.onclick = callback;
+			tileElement.oncontextmenu = rightClickCallback;
+			return tileElement;
+		}
+
+		let createBoard = (mineField) => {
+			let clickCallback = (tile) => {
+				return () => { handleTileClicked(mineField, tile); }
+			}
+			let rightClickCallback = (tile) => {
+				return () => {
+					if(tile.isDiscovered || (!tile.isFlagged && mineField.remainingMines <= 0)) {return false}
+					tile.isFlagged = !tile.isFlagged
+					mineField.remainingMines += tile.isFlagged ? -1 : 1;
+					setRemainingMines(mineField.remainingMines)
+					if(mineField.hasBeenClicked && mineField.remainingMines == 0 && checkWinCondition(mineField)) {
+						gameFinished(mineField, true);
+					}
+					updateElement(tile)
+					return false;
+				}
+			}
+
+			setRootProperty('--board-width', TILE_WIDTH_PIXELS * mineField.width + "px");
+			
+			tileElements = mineField.tiles.flat().map((tile, i) => createTileElement(tile, clickCallback(tile), rightClickCallback(tile)))
+			let container = getTileContainer();
+			container.innerHTML = "";
+			let tileBoard = document.createElement("div");
+			tileBoard.className = TILE_BOARD
+			tileBoard.id = TILE_BOARD
+			tileElements.forEach((t) => tileBoard.appendChild(t));
+			container.appendChild(tileBoard)
+		}
+
+		let init = () => {
+			setRootProperty('--tile-size', TILE_WIDTH_PIXELS + "px");
+			document.addEventListener("DOMContentLoaded", 
+				() => document.getElementById("status-box").onclick = () => startNewGame(GAME_CONFIG))
+		}
+
+		init();
+		document.addEventListener("DOMContentLoaded", () => startNewGame(GAME_CONFIG))
+	</script>
+</head>
+
+<body>
+	<div id="JSMSMScontainer" class="jsmsms-container raised">
+		<div class="raised info-bar" onselectstart="return false;">
+			<div class="number-box" id="remaining-mines"></div>
+			<div id="status-box"></div>
+			<div class="number-box" id="time" >000</div>
+		</div>
+		<div id="tilecontainer" class="inset"></div>
+		<button onclick="startNewGame({width: 9, height: 9, mines: 2})"   class="raised clickable-raised">Test</button>
+		<button onclick="startNewGame({width: 9, height: 9, mines: 10})"   class="raised clickable-raised">Easy</button>
+		<button onclick="startNewGame({width: 16, height: 16, mines: 40})" class="raised clickable-raised">Medium</button>
+		<button onclick="startNewGame({width: 30, height: 16, mines: 99})" class="raised clickable-raised">Hard</button>
+	</div>
+	<button onclick="customGame()" class="raised clickable-raised">Custom</button>
+	<input id="input-width" placeholder="Width">
+	<input id="input-height" placeholder="Height">
+	<input id="input-mines" placeholder="Mines">
+</body>
+
+</html>
